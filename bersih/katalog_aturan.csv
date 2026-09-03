@@ -1,0 +1,20 @@
+kode,kategori,tingkat,deskripsi,saran,baris_kena,persen,tindakan
+K01,kelengkapan,kritis,Kolom kunci kosong (TGL / KODE / QTY / JUMLAH),Baris tidak dapat dianalisis — keluarkan dari dataset analisis.,0,0.0,keluarkan
+K02,validitas,kritis,QTY <= 0,Cek apakah retur (harus bernilai negatif konsisten) atau salah input.,0,0.0,keluarkan
+K03,validitas,kritis,HARGA = 0 sehingga JUMLAH = 0,"Barang keluar tanpa nilai jual: sampling/bonus. Keluarkan dari omzet, pertahankan bila menganalisis kuantitas keluar.",58,0.86,keluarkan
+K04,validitas,peringatan,JUMLAH <= 0 padahal HARGA > 0,Kombinasi yang tidak konsisten — konfirmasi ke sumber.,0,0.0,tandai
+K05,noise,kritis,Baris non-penjualan (sampling/bonus/retur) menurut nama pihak atau nilai nol,Bukan omzet. Pisahkan agar tidak mengencerkan rata-rata nilai transaksi.,58,0.86,keluarkan
+D01,duplikasi,kritis,Duplikat persis (kemunculan ke-2 dan seterusnya),Hapus salinan berlebih; pertahankan kemunculan pertama.,73,1.08,keluarkan
+D02,duplikasi,peringatan,"Duplikat lunak: identik pada tanggal+pelanggan+SKU+QTY+harga, tetapi bukan D01",Bisa jadi dua struk sah di hari yang sama — konfirmasi sebelum dihapus.,0,0.0,tandai
+A01,aritmetika,info,Diskon wajar: JUMLAH = 80%-100% dari QTY x HARGA,Sah. Pakai JUMLAH (bukan QTY x HARGA) sebagai nilai omzet.,73,1.08,perbaiki
+A02,aritmetika,peringatan,Potongan tidak wajar: JUMLAH < 80% dari QTY x HARGA,Potongan sangat dalam — cek promo khusus atau salah ketik nominal.,4,0.06,tandai
+A03,aritmetika,peringatan,JUMLAH melebihi QTY x HARGA,Tidak ada penjelasan bisnis yang wajar — kemungkinan salah input.,0,0.0,tandai
+R01,referensial,info,Kode barang punya >1 ejaan nama (sudah diseragamkan),Perbaiki master barang di sistem sumber agar ejaannya tunggal.,533,7.86,perbaiki
+R02,referensial,peringatan,Nama barang sama dipakai oleh >1 kode barang,Kemungkinan kode ganda untuk barang identik — perlu penggabungan SKU.,172,2.54,tandai
+R03,referensial,peringatan,Pelanggan tercatat pada >1 kode kanal,Tentukan kanal yang benar; analisis per kanal belum dapat dipercaya sebelum itu.,402,5.93,perbaiki
+S01,pencilan,peringatan,Harga menyimpang >30% dari median SKU+satuan yang sama,Kandidat salah ketik harga atau harga khusus — cek nota aslinya.,7,0.1,tandai
+S02,pencilan,info,Harga menyimpang secara statistik (|z robust| > 5),"Menyimpang dari kebiasaan SKU ini, tetapi bisa jadi tier harga pelanggan.",26,0.38,tandai
+S03,pencilan,info,Kuantitas jauh di atas kebiasaan SKU (z robust > 8),"Umumnya pesanan borongan yang sah — jangan dihapus, cukup dicatat.",237,3.5,tandai
+S04,pencilan,info,Nilai baris ekstrem terhadap seluruh transaksi (pagar IQR pada skala log),Transaksi bernilai tidak biasa — verifikasi yang bernilai sangat besar.,2,0.03,tandai
+T01,temporal,info,Baris jatuh pada hari dengan omzet melonjak (z robust harian > 5),Periksa apakah hari itu memuat pesanan borongan atau input yang menumpuk.,370,5.46,tandai
+T02,temporal,peringatan,Transaksi pada hari Minggu (di luar pola operasional),Cek apakah tanggalnya benar — hampir semua Minggu tidak ada penjualan.,1,0.01,tandai
