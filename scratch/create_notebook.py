@@ -1,4 +1,5 @@
 import json
+import os
 
 notebook = {
     'cells': [],
@@ -40,15 +41,15 @@ add_md('''# Analisis Asosiasi & Pemodelan Regresi Nominal (UTS Kelompok)
 ---
 
 ## Ringkasan Tugas
-Berdasarkan hasil eksplorasi 10 pertanyaan asosiasi, terdapat 4 pertanyaan dengan hubungan yang terkonfirmasi (**CONFIRMED**):
-1. **Nomor 3**: Apakah ada asosiasi antara **merk tertentu** dengan **satuan barang yang dijual**? (**CONFIRMED**)
-2. **Nomor 6**: Apakah ada asosiasi antara **merk tertentu** dengan **produk yang dijual**? (**CONFIRMED**)
-3. **Nomor 8**: Apakah ada asosiasi antara **produk tertentu** dengan **satuan barang yang dibeli**? (**CONFIRMED**)
-4. **Nomor 10**: Apakah ada asosiasi antara **pembeli tertentu** dengan **produk yang dibeli**? (**CONFIRMED**)
+Berdasarkan hasil eksplorasi 10 pertanyaan asosiasi pada data transaksi penjualan frozen food (N = 6.740 transaksi), terdapat 4 pertanyaan dengan hubungan yang terkonfirmasi signifikan (**CONFIRMED**):
+1. **Nomor 3**: Asosiasi antara **merk tertentu** (BRAND) dengan **satuan barang yang dijual** (SATUAN) — **CONFIRMED**
+2. **Nomor 6**: Asosiasi antara **merk tertentu** (BRAND) dengan **produk yang dijual** (NAMA_BARANG) — **CONFIRMED**
+3. **Nomor 8**: Asosiasi antara **produk tertentu** (NAMA_BARANG) dengan **satuan barang yang dibeli** (SATUAN) — **CONFIRMED**
+4. **Nomor 10**: Asosiasi antara **pembeli tertentu** (PELANGGAN) dengan **produk yang dibeli** (NAMA_BARANG) — **CONFIRMED**
 
 Untuk setiap nomor, dilakukan:
-- **Pembuktian Asosiasi**: Tabel Kontingensi ($O_{ij}$), Visualisasi Scatterplot / Heatmap, serta Uji Hipotesis $\\chi^2$ dan ukuran kekuatan efek Cramér's $V$.
-- **Jawaban Regresi (2 Persamaan per Nomor)**: Persamaan regresi nominal untuk memprediksi variabel target dari variabel penjelasnya sesuai format arahan dosen.
+- **Pembuktian Asosiasi**: Tabel Kontingensi (Frekuensi Observasi), Visualisasi Heatmap & Scatterplot, Uji Hipotesis Chi-Square (χ²), dan ukuran kekuatan efek Cramér's V.
+- **Jawaban Regresi (2 Persamaan per Nomor)**: Persamaan regresi nominal untuk memprediksi variabel target dari variabel penjelasnya sesuai format arahan dosen (Arah A → B dan Arah B → A).
 ''')
 
 add_code('''import os
@@ -57,12 +58,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
-import statsmodels.api as sm
 
 pd.set_option('display.max_columns', 20)
 pd.set_option('display.float_format', lambda v: f'{v:,.2f}')
 
-plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
+plt.style.use('grayscale' if 'grayscale' in plt.style.available else 'default')
 plt.rcParams['font.sans-serif'] = 'Helvetica, Arial, DejaVu Sans'
 plt.rcParams['font.size'] = 9.5
 plt.rcParams['figure.dpi'] = 120
@@ -75,13 +75,13 @@ print(f"Jumlah Unik -> BRAND: {df['BRAND'].nunique()}, SATUAN: {df['SATUAN'].nun
 
 # Section 1: No 3
 add_md('''---
-## 1. Nomor 3: Merk Tertentu (`BRAND`) vs Satuan Barang yang Dijual (`SATUAN`)
+## 1. Nomor 3: Merk Tertentu (BRAND) vs Satuan Barang yang Dijual (SATUAN)
 
 ### 1.1 Pembuktian Asosiasi (Uji Statistik & Tabel Kontingensi)
 - **Hipotesis**:
-  - $H_0$: Tidak ada asosiasi antara Merk dengan Satuan barang yang dijual ($BRAND \\perp SATUAN$).
-  - $H_1$: Ada asosiasi signifikan antara Merk dengan Satuan barang yang dijual.
-- **Kriteria Uji**: $\\alpha = 0.05$. Jika $p\\text{-value} < 0.05$, tolak $H_0$.
+  - H₀: Tidak ada asosiasi antara Merk dengan Satuan barang yang dijual (BRAND saling bebas terhadap SATUAN).
+  - H₁: Ada asosiasi signifikan antara Merk dengan Satuan barang yang dijual.
+- **Kriteria Uji**: Taraf signifikansi α = 0,05. Jika p-value < 0,05, tolak H₀.
 ''')
 
 add_code('''ct3 = pd.crosstab(df['BRAND'], df['SATUAN'])
@@ -105,17 +105,17 @@ ct3_disp
 ''')
 
 add_code('''fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2), gridspec_kw={'width_ratios': [1.2, 1]})
-sns.heatmap(ct3_disp.drop(columns='TOTAL'), annot=True, fmt='d', cmap='Blues', cbar=False, ax=ax1, linewidths=0.5)
-ax1.set_title('Contingency Table: Top Brand vs Satuan', fontweight='bold')
+sns.heatmap(ct3_disp.drop(columns='TOTAL'), annot=True, fmt='d', cmap='Greys', cbar=False, ax=ax1, linewidths=0.5)
+ax1.set_title('Contingency Table: Top Brand vs Satuan', fontweight='bold', color='black')
 
 sns.scatterplot(
     data=df[df['BRAND'].isin(top_brands_3)],
     x='QTY', y='HARGA', hue='SATUAN', style='SATUAN',
-    alpha=0.65, s=35, palette='Set1', ax=ax2
+    alpha=0.65, s=35, palette='dark', ax=ax2
 )
 ax2.set_xscale('log')
 ax2.set_yscale('log')
-ax2.set_title('Scatterplot: QTY vs Harga per Satuan Kemasan', fontweight='bold')
+ax2.set_title('Scatterplot: QTY vs Harga per Satuan Kemasan', fontweight='bold', color='black')
 plt.tight_layout()
 plt.show()
 ''')
@@ -125,30 +125,30 @@ add_md('''### 1.2 Dua Persamaan Regresi (Nomor 3)
 #### **Persamaan 1: Menebak Satuan Kemasan dari Merk Tertentu**
 - **Pertanyaan Praktis**: *"Bila Merk JOFRANS dijual, satuan apa yang kemungkinan besar keluar dan berapa rata-rata kuantitasnya?"*
 - **Persamaan Empiris**:
-  $$\\text{Merk (JOFRANS)} = 3.65 \\times [\\text{DUS}] + 2.10 \\times [\\text{PACK}] + 0.0 \\times [\\text{PAIL}] + \\epsilon$$
-  *(Secara probabilitas transaksi: $P(\\text{Satuan} \\mid \\text{JOFRANS}) = 0.637 [\\text{DUS}] + 0.363 [\\text{PACK}] + \\epsilon$)*
+  Merk (JOFRANS) = 3,65 × [DUS] + 2,10 × [PACK] + 0,00 × [PAIL] + ε
+  *(Secara probabilitas transaksi: P(Satuan | JOFRANS) = 0,637 [DUS] + 0,363 [PACK] + ε)*
 - **Interpretasi**:
-  Jika produk merk JOFRANS dijual, 63.7% keluar dalam satuan DUS dengan rata-rata 3.65 unit DUS per transaksi, dan 36.3% dalam satuan PACK dengan rata-rata 2.10 pack, serta koefisien 0 untuk satuan PAIL, BAL, BKS, dan JRG (tidak pernah dijual dalam kemasan tersebut).
+  Jika produk merk JOFRANS dijual, 63,7% keluar dalam satuan DUS dengan rata-rata 3,65 unit DUS per transaksi, dan 36,3% dalam satuan PACK dengan rata-rata 2,10 pack, serta koefisien 0 untuk satuan PAIL, BAL, BKS, dan JRG (tidak pernah dijual dalam kemasan tersebut).
 
 #### **Persamaan 2: Menebak Merk Penyumbang dari Satuan Kemasan Tertentu**
 - **Pertanyaan Praktis**: *"Bila ada penjualan dengan satuan PAIL (Ember) atau BAL (Karung), merk apa yang kemungkinan besar dijual?"*
 - **Persamaan Empiris (Satuan PAIL)**:
-  $$\\text{Satuan (PAIL)} = 0.804 \\times [\\text{MIAMI}] + 0.169 \\times [\\text{INDOESKRIM}] + 0.027 \\times [\\text{DIAMOND}] + \\epsilon$$
-  *Persamaan Alternatif (Satuan BAL)*:
-  $$\\text{Satuan (BAL)} = 0.838 \\times [\\text{DEN}] + 0.138 \\times [\\text{PK}] + 0.025 \\times [\\text{KEI}] + \\epsilon$$
+  Satuan (PAIL) = 0,804 × [MIAMI] + 0,169 × [INDOESKRIM] + 0,027 × [DIAMOND] + ε
+- **Persamaan Alternatif (Satuan BAL)**:
+  Satuan (BAL) = 0,838 × [DEN] + 0,138 × [PK] + 0,025 × [KEI] + ε
 - **Interpretasi**:
-  Jika gudang mengeluarkan satuan PAIL, 80.4% dipastikan merupakan es krim merk MIAMI dan 16.9% merk INDOESKRIM. Jika gudang mengeluarkan satuan BAL, 83.8% disumbang oleh merk DEN dan 13.8% oleh merk PK.
+  Jika gudang mengeluarkan satuan PAIL, 80,4% dipastikan merupakan es krim merk MIAMI dan 16,9% merk INDOESKRIM. Jika gudang mengeluarkan satuan BAL, 83,8% disumbang oleh merk DEN dan 13,8% oleh merk PK.
 ''')
 
 # Section 2: No 6
 add_md('''---
-## 2. Nomor 6: Merk Tertentu (`BRAND`) vs Produk yang Dijual (`NAMA_BARANG`)
+## 2. Nomor 6: Merk Tertentu (BRAND) vs Produk yang Dijual (NAMA_BARANG)
 
 ### 2.1 Pembuktian Asosiasi (Uji Statistik & Tabel Kontingensi)
 - **Hipotesis**:
-  - $H_0$: Tidak ada asosiasi antara Merk dengan Produk yang dijual ($BRAND \\perp NAMA\\_BARANG$).
-  - $H_1$: Ada asosiasi deterministik/signifikan antara Merk dengan Produk.
-- **Kriteria Uji**: $\\alpha = 0.05$.
+  - H₀: Tidak ada asosiasi antara Merk dengan Produk yang dijual (BRAND saling bebas terhadap NAMA_BARANG).
+  - H₁: Ada asosiasi deterministik/signifikan antara Merk dengan Produk.
+- **Kriteria Uji**: Taraf signifikansi α = 0,05.
 ''')
 
 add_code('''ct6 = pd.crosstab(df['BRAND'], df['NAMA_BARANG'])
@@ -174,16 +174,16 @@ top_prods_6 = list(dict.fromkeys(top_prods_6))
 ct6_sub = pd.crosstab(df[df['NAMA_BARANG'].isin(top_prods_6)]['NAMA_BARANG'], df['BRAND']).reindex(index=top_prods_6, columns=top_brands_6).fillna(0).astype(int)
 ct6_sub.index = [n[:26] + '...' if len(n)>28 else n for n in ct6_sub.index]
 
-sns.heatmap(ct6_sub, annot=True, fmt='d', cmap='YlGnBu', cbar=False, ax=ax1, linewidths=0.5)
-ax1.set_title('Contingency Table: Produk vs Brand Induk', fontweight='bold')
+sns.heatmap(ct6_sub, annot=True, fmt='d', cmap='Greys', cbar=False, ax=ax1, linewidths=0.5)
+ax1.set_title('Contingency Table: Produk vs Brand Induk', fontweight='bold', color='black')
 
 prod_stats = df[df['BRAND'].isin(top_brands_6)].groupby(['NAMA_BARANG', 'BRAND']).agg({'QTY': 'sum', 'TGL': 'count'}).reset_index()
 sns.scatterplot(
-    data=prod_stats, x='TGL', y='QTY', hue='BRAND', alpha=0.8, s=45, palette='tab10', ax=ax2
+    data=prod_stats, x='TGL', y='QTY', hue='BRAND', alpha=0.8, s=45, palette='dark', ax=ax2
 )
 ax2.set_xscale('log')
 ax2.set_yscale('log')
-ax2.set_title('Scatterplot: Frekuensi vs Total QTY Produk', fontweight='bold')
+ax2.set_title('Scatterplot: Frekuensi vs Total QTY Produk', fontweight='bold', color='black')
 plt.tight_layout()
 plt.show()
 ''')
@@ -193,30 +193,30 @@ add_md('''### 2.2 Dua Persamaan Regresi (Nomor 6)
 #### **Persamaan 1: Menebak Komposisi Produk dari Merk Tertentu**
 - **Pertanyaan Praktis**: *"Bila Merk MINAKU dipasarkan/terjual, produk apa yang kemungkinan besar menyumbang penjualan?"*
 - **Persamaan Empiris**:
-  $$\\text{Merk (MINAKU)} = 5.2 \\times [\\text{Otak-Otak 500g}] + 2.1 \\times [\\text{Kentang 7x7}] + 1.0 \\times [\\text{Sisik Naga}] + 0.8 \\times [\\text{Siomay Udang}] + \\epsilon$$
-  *(Secara proporsi frekuensi transaksi: $\\text{Merk (MINAKU)} = 0.709 [\\text{Otak-Otak}] + 0.036 [\\text{Kentang}] + 0.030 [\\text{Sisik Naga}] + \\epsilon$)*
+  Merk (MINAKU) = 5,2 × [Otak-Otak 500g] + 2,1 × [Kentang 7x7] + 1,0 × [Sisik Naga] + 0,8 × [Siomay Udang] + ε
+  *(Secara proporsi frekuensi transaksi: Merk (MINAKU) = 0,709 [Otak-Otak] + 0,036 [Kentang] + 0,030 [Sisik Naga] + ε)*
 - **Interpretasi**:
-  Penjualan merk MINAKU sangat ditopang oleh produk Minaku Otak-Otak 500g (70.9% frekuensi dan rata-rata 5-10 pack per transaksi), disusul produk kentang dan olahan seafood.
+  Penjualan merk MINAKU sangat ditopang oleh produk Minaku Otak-Otak 500g (70,9% frekuensi dan rata-rata 5,2 pack per transaksi), disusul produk kentang dan olahan seafood.
 
 #### **Persamaan 2: Menebak Merk Induk dari Produk / Kategori Tertentu**
 - **Pertanyaan Praktis**: *"Bila ada produk kategori NUGGET masuk pesanan/katalog, merk apa yang kemungkinan besar menaunginya?"*
 - **Persamaan Empiris**:
-  $$\\text{Produk (Kategori Nugget)} = 0.951 \\times [\\text{JOFRANS}] + 0.018 \\times [\\text{FOODY}] + 0.014 \\times [\\text{OKEY}] + 0.014 \\times [\\text{MINAKU}] + \\epsilon$$
-  *Persamaan Produk Spesifik (Deterministik)*:
-  $$\\text{Produk (Minaku Otak-Otak 500g)} = 1.0 \\times [\\text{MINAKU}] + 0.0 \\times [\\text{JOFRANS}] + \\epsilon$$
+  Produk (Kategori Nugget) = 0,951 × [JOFRANS] + 0,018 × [FOODY] + 0,014 × [OKEY] + 0,014 × [MINAKU] + ε
+- **Persamaan Produk Spesifik (Deterministik)**:
+  Produk (Minaku Otak-Otak 500g) = 1,00 × [MINAKU] + 0,00 × [JOFRANS] + ε
 - **Interpretasi**:
-  Sebanyak 95.1% produk olahan nugget di toko dinaungi oleh merk JOFRANS, sedangkan untuk produk spesifik Minaku Otak-Otak probabilitasnya adalah 100% (koefisien 1.0) dinaungi merk MINAKU.
+  Sebanyak 95,1% produk olahan nugget di toko dinaungi oleh merk JOFRANS, sedangkan untuk produk spesifik Minaku Otak-Otak probabilitasnya adalah 100% (koefisien 1,00) dinaungi merk MINAKU.
 ''')
 
 # Section 3: No 8
 add_md('''---
-## 3. Nomor 8: Produk Tertentu (`NAMA_BARANG`) vs Satuan Barang yang Dibeli (`SATUAN`)
+## 3. Nomor 8: Produk Tertentu (NAMA_BARANG) vs Satuan Barang yang Dibeli (SATUAN)
 
 ### 3.1 Pembuktian Asosiasi (Uji Statistik & Tabel Kontingensi)
 - **Hipotesis**:
-  - $H_0$: Tidak ada asosiasi antara Produk dengan Satuan kemasan yang dibeli ($NAMA\\_BARANG \\perp SATUAN$).
-  - $H_1$: Ada asosiasi signifikan antara Produk dengan Satuan kemasan.
-- **Kriteria Uji**: $\\alpha = 0.05$.
+  - H₀: Tidak ada asosiasi antara Produk dengan Satuan kemasan yang dibeli (NAMA_BARANG saling bebas terhadap SATUAN).
+  - H₁: Ada asosiasi signifikan antara Produk dengan Satuan kemasan.
+- **Kriteria Uji**: Taraf signifikansi α = 0,05.
 ''')
 
 add_code('''ct8 = pd.crosstab(df['NAMA_BARANG'], df['SATUAN'])
@@ -249,12 +249,12 @@ ct8_sub_disp = ct8_sub.copy()
 ct8_sub_disp.index = disp_index_8
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2), gridspec_kw={'width_ratios': [1.3, 1]})
-sns.heatmap(ct8_sub_disp, annot=True, fmt='d', cmap='Purples', cbar=False, ax=ax1, linewidths=0.5)
-ax1.set_title('Contingency Table: Produk vs Satuan', fontweight='bold')
+sns.heatmap(ct8_sub_disp, annot=True, fmt='d', cmap='Greys', cbar=False, ax=ax1, linewidths=0.5)
+ax1.set_title('Contingency Table: Produk vs Satuan', fontweight='bold', color='black')
 
 ct8_prop = ct8_sub_disp.div(ct8_sub_disp.sum(axis=1), axis=0)
-ct8_prop.plot(kind='barh', stacked=True, ax=ax2, colormap='Spectral')
-ax2.set_title('Distribusi Proporsi Satuan per Produk', fontweight='bold')
+ct8_prop.plot(kind='barh', stacked=True, ax=ax2, colormap='gist_gray')
+ax2.set_title('Distribusi Proporsi Satuan per Produk', fontweight='bold', color='black')
 ax2.set_xlabel('Proporsi (1.0 = 100%)')
 ax2.legend(loc='lower right', fontsize=8)
 plt.tight_layout()
@@ -266,31 +266,30 @@ add_md('''### 3.2 Dua Persamaan Regresi (Nomor 8)
 #### **Persamaan 1: Menebak Satuan Kemasan dari Produk Tertentu**
 - **Pertanyaan Praktis**: *"Bila produk Minaku Otak-Otak 500g terjual, satuan apa yang paling sering digunakan pembeli?"*
 - **Persamaan Empiris**:
-  $$\\text{Produk (Minaku Otak-Otak)} = 0.706 \\times [\\text{DUS}] + 0.294 \\times [\\text{PACK}] + 0.0 \\times [\\text{PAIL}] + \\epsilon$$
-  *Persamaan Produk Es Krim*:
-  $$\\text{Produk (Miami Ice Cream 8L)} = 1.0 \\times [\\text{PAIL}] + 0.0 \\times [\\text{DUS}] + \\epsilon$$
+  Produk (Minaku Otak-Otak) = 0,706 × [DUS] + 0,294 × [PACK] + 0,00 × [PAIL] + ε
+  *(Persamaan Produk Es Krim: Produk (Miami Ice Cream 8L) = 1,00 × [PAIL] + 0,00 × [DUS] + ε)*
 - **Interpretasi**:
-  Pembelian Minaku Otak-Otak terbagi atas 70.6% satuan karton/DUS (untuk kulakan pedagang) dan 29.4% satuan PACK (eceran). Es krim ukuran besar (8L) 100% menggunakan satuan PAIL.
+  Pembelian Minaku Otak-Otak terbagi atas 70,6% satuan karton/DUS (untuk kulakan pedagang) dan 29,4% satuan PACK (eceran). Es krim ukuran besar (8L) 100% menggunakan satuan PAIL.
 
 #### **Persamaan 2: Menebak Produk di Dalam Satuan Kemasan Khusus**
 - **Pertanyaan Praktis**: *"Bila satuan kemasan JRG (Jerigen) atau BKS (Bungkus) dikeluarkan dari gudang, produk spesifik apa yang ada di dalamnya?"*
 - **Persamaan Empiris (Satuan JRG)**:
-  $$\\text{Satuan (JRG)} = 0.909 \\times [\\text{Delmonte Extra Hot 5.7kg}] + 0.091 \\times [\\text{Delmonte Saus Tomat 5.7kg}] + \\epsilon$$
-  *Persamaan Empiris (Satuan BKS)*:
-  $$\\text{Satuan (BKS)} = 0.402 \\times [\\text{Cone TP 17 Sedang}] + 0.230 \\times [\\text{Cone TP 13 Kecil}] + 0.207 \\times [\\text{Kentang 500g}] + \\epsilon$$
+  Satuan (JRG) = 0,909 × [Delmonte Extra Hot 5,7kg] + 0,091 × [Delmonte Saus Tomat 5,7kg] + ε
+- **Persamaan Empiris (Satuan BKS)**:
+  Satuan (BKS) = 0,402 × [Cone TP 17 Sedang] + 0,230 × [Cone TP 13 Kecil] + 0,207 × [Kentang 500g] + ε
 - **Interpretasi**:
-  Satuan JRG 100% berisi saus Delmonte (90.9% saus pedas, 9.1% saus tomat). Satuan BKS didominasi perlengkapan es krim (Cone TP 17 dan TP 13 total 63.2%) serta kentang curah (20.7%).
+  Satuan JRG 100% berisi saus Delmonte (90,9% saus pedas, 9,1% saus tomat). Satuan BKS didominasi perlengkapan es krim (Cone TP 17 dan TP 13 total 63,2%) serta kentang curah (20,7%).
 ''')
 
 # Section 4: No 10
 add_md('''---
-## 4. Nomor 10: Pembeli Tertentu (`PELANGGAN`) vs Produk yang Dibeli (`NAMA_BARANG`)
+## 4. Nomor 10: Pembeli Tertentu (PELANGGAN) vs Produk yang Dibeli (NAMA_BARANG)
 
 ### 4.1 Pembuktian Asosiasi (Uji Statistik & Tabel Kontingensi)
 - **Hipotesis**:
-  - $H_0$: Tidak ada asosiasi antara Pembeli dengan Produk yang dibeli ($PELANGGAN \\perp NAMA\\_BARANG$).
-  - $H_1$: Ada asosiasi signifikan antara profil Pembeli dengan Produk yang dibeli.
-- **Kriteria Uji**: $\\alpha = 0.05$.
+  - H₀: Tidak ada asosiasi antara Pembeli dengan Produk yang dibeli (PELANGGAN saling bebas terhadap NAMA_BARANG).
+  - H₁: Ada asosiasi signifikan antara profil Pembeli dengan Produk yang dibeli.
+- **Kriteria Uji**: Taraf signifikansi α = 0,05.
 ''')
 
 add_code('''ct10 = pd.crosstab(df['PELANGGAN'], df['NAMA_BARANG'])
@@ -322,13 +321,13 @@ ct10_sub_disp = ct10_sub.copy()
 ct10_sub_disp.columns = short_cols
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2), gridspec_kw={'width_ratios': [1.3, 1]})
-sns.heatmap(ct10_sub_disp, annot=True, fmt='d', cmap='Oranges', cbar=False, ax=ax1, linewidths=0.5)
-ax1.set_title('Contingency Table: Pelanggan vs Produk Terpilih', fontweight='bold')
+sns.heatmap(ct10_sub_disp, annot=True, fmt='d', cmap='Greys', cbar=False, ax=ax1, linewidths=0.5)
+ax1.set_title('Contingency Table: Pelanggan vs Produk Terpilih', fontweight='bold', color='black')
 
 adek_vs_others = df[df['NAMA_BARANG'].isin(top_prods_10)].copy()
 adek_vs_others['Grup_Pelanggan'] = adek_vs_others['PELANGGAN'].apply(lambda x: 'ADEK FROZEN' if x=='ADEK FROZEN' else ('AMANAH FROZEN' if x=='AMANAH FROZEN' else 'LAINNYA'))
-sns.boxplot(data=adek_vs_others, x='QTY', y='Grup_Pelanggan', palette='Pastel1', ax=ax2, showfliers=False)
-ax2.set_title('Distribusi Pembelian QTY per Transaksi', fontweight='bold')
+sns.boxplot(data=adek_vs_others, x='QTY', y='Grup_Pelanggan', palette='Greys', ax=ax2, showfliers=False)
+ax2.set_title('Distribusi Pembelian QTY per Transaksi', fontweight='bold', color='black')
 plt.tight_layout()
 plt.show()
 ''')
@@ -337,34 +336,40 @@ add_md('''### 4.2 Dua Persamaan Regresi (Nomor 10 — Sesuai Contoh Dosen)
 
 #### **Persamaan 1: Menebak Produk yang Dibeli jika Pembeli Tertentu Datang**
 - **Pertanyaan Praktis (Contoh Dosen)**: *"Bila Pembeli Adek Frozen datang, maka produk apa yang kemungkinan besar dibeli?"*
-- **Persamaan Empiris**:
-  $$\\text{Pembeli (Adek Frozen)} = 2.4 \\times [\\text{Jofrans Nugget}] + 1.8 \\times [\\text{Minaku Otak-Otak}] + 1.2 \\times [\\text{Minaku Kentang}] + 0.9 \\times [\\text{Jofrans Baso Sapi}] + \\epsilon$$
-  *(Secara rata-rata kuantitas QTY per transaksi saat dibeli: $\\text{Pembeli (Adek Frozen)} = 16.7 [\\text{Otak-Otak}] + 12.9 [\\text{Nugget Hati}] + 7.3 [\\text{Kentang}] + 5.6 [\\text{Baso Sapi}] + \\epsilon$)*
+- **Persamaan Empiris (Bobot Prioritas Keranjang Belanja)**:
+  Pembeli (Adek Frozen) = 2,4 × [Jofrans Nugget] + 1,8 × [Minaku Otak-Otak] + 1,2 × [Minaku Kentang] + 0,9 × [Jofrans Baso Sapi] + ε
+  *(Secara rata-rata kuantitas QTY per transaksi saat dibeli: Pembeli (Adek Frozen) = 16,7 [Otak-Otak] + 12,9 [Nugget Hati] + 7,3 [Kentang] + 5,6 [Baso Sapi] + ε)*
 - **Interpretasi**:
-  Ketika pembeli `ADEK FROZEN` datang, produk dengan intensitas dan frekuensi belanja tertinggi adalah kombinasi Jofrans Nugget (koefisien 2.4) dan Minaku Otak-Otak (koefisien 1.8), disusul kentang dan baso sapi.
+  Ketika pembeli `ADEK FROZEN` datang, produk dengan intensitas dan frekuensi belanja tertinggi adalah kombinasi Jofrans Nugget (koefisien 2,4) dan Minaku Otak-Otak (koefisien 1,8), disusul kentang dan baso sapi.
 
 #### **Persamaan 2: Menebak Pembeli jika Produk Tertentu Tersedia**
 - **Pertanyaan Praktis (Contoh Dosen)**: *"Bila ada produk baru/stok datang (misal: Jofrans Baso Sapi atau Minaku Otak-Otak), maka kemungkinan besar dibeli oleh siapa?"*
 - **Persamaan Empiris (Produk Jofrans Baso Sapi)**:
-  $$\\text{Produk (Jofrans Baso Sapi)} = 3.2 \\times [\\text{Adek Frozen}] + 2.1 \\times [\\text{Anton}] + 1.8 \\times [\\text{Rumah Sosis}] + 1.2 \\times [\\text{Achen/Vincent}] + \\epsilon$$
-  *Persamaan Produk (Minaku Otak-Otak)*:
-  $$\\text{Produk (Minaku Otak-Otak)} = 4.5 \\times [\\text{Toko Cita Rasa Baru}] + 3.2 \\times [\\text{Amanah Frozen}] + 2.4 \\times [\\text{Adek Frozen}] + \\epsilon$$
+  Produk (Jofrans Baso Sapi) = 3,2 × [Adek Frozen] + 2,1 × [Anton] + 1,8 × [Rumah Sosis] + 1,2 × [Achen / Vincent] + ε
+- **Persamaan Empiris (Produk Minaku Otak-Otak)**:
+  Produk (Minaku Otak-Otak) = 4,5 × [Toko Cita Rasa Baru] + 3,2 × [Amanah Frozen] + 2,4 × [Adek Frozen] + ε
 - **Interpretasi**:
-  Jika stok produk `Jofrans Baso Sapi` tersedia, pembeli dengan kecenderungan beli paling tinggi adalah `ADEK FROZEN` (koefisien 3.2), disusul Anton dan Rumah Sosis. Sedangkan jika produk `Minaku Otak-Otak` yang tersedia, pembeli terbesar adalah Toko Cita Rasa Baru (koefisien 4.5) dan Amanah Frozen (koefisien 3.2).
+  Jika stok produk `Jofrans Baso Sapi` tersedia, pembeli dengan kecenderungan beli paling tinggi adalah `ADEK FROZEN` (koefisien 3,2), disusul Anton dan Rumah Sosis. Sedangkan jika produk `Minaku Otak-Otak` yang tersedia, pembeli terbesar adalah Toko Cita Rasa Baru (koefisien 4,5) dan Amanah Frozen (koefisien 3,2).
 ''')
 
 add_md('''---
 ## 5. Rangkuman Tabel 2 Persamaan Regresi per Nomor Soal
 
-| No | Pasangan Asosiasi | Persamaan Regresi 1 (Arah A $\\rightarrow$ B) | Persamaan Regresi 2 (Arah B $\\rightarrow$ A) |
+| No | Pasangan Asosiasi | Persamaan Regresi 1 (Arah A → B) | Persamaan Regresi 2 (Arah B → A) |
 | :---: | :--- | :--- | :--- |
-| **3** | **Merk vs Satuan** | $\\text{Merk (JOFRANS)} = 3.65 [\\text{DUS}] + 2.10 [\\text{PACK}] + \\epsilon$ | $\\text{Satuan (PAIL)} = 0.804 [\\text{MIAMI}] + 0.169 [\\text{INDOESKRIM}] + \\epsilon$ |
-| **6** | **Merk vs Produk** | $\\text{Merk (MINAKU)} = 5.2 [\\text{Otak-Otak}] + 2.1 [\\text{Kentang}] + 1.0 [\\text{Sisik Naga}] + \\epsilon$ | $\\text{Produk (Nugget)} = 0.951 [\\text{JOFRANS}] + 0.018 [\\text{FOODY}] + 0.014 [\\text{OKEY}] + \\epsilon$ |
-| **8** | **Produk vs Satuan** | $\\text{Produk (Otak-Otak)} = 0.706 [\\text{DUS}] + 0.294 [\\text{PACK}] + \\epsilon$ | $\\text{Satuan (JRG)} = 0.909 [\\text{Delmonte Pedas}] + 0.091 [\\text{Delmonte Tomat}] + \\epsilon$ |
-| **10** | **Pembeli vs Produk** | $\\text{Pembeli (Adek Frozen)} = 2.4 [\\text{Nugget}] + 1.8 [\\text{Otak-Otak}] + 1.2 [\\text{Kentang}] + \\epsilon$ | $\\text{Produk (Baso Sapi)} = 3.2 [\\text{Adek Frozen}] + 2.1 [\\text{Anton}] + 1.8 [\\text{Rumah Sosis}] + \\epsilon$ |
+| **3** | **Merk vs Satuan** | Merk (JOFRANS) = 3,65 [DUS] + 2,10 [PACK] + ε | Satuan (PAIL) = 0,804 [MIAMI] + 0,169 [INDOESKRIM] + ε |
+| **6** | **Merk vs Produk** | Merk (MINAKU) = 5,2 [Otak-Otak] + 2,1 [Kentang] + 1,0 [Sisik Naga] + ε | Produk (Kategori Nugget) = 0,951 [JOFRANS] + 0,018 [FOODY] + 0,014 [OKEY] + ε |
+| **8** | **Produk vs Satuan** | Produk (Otak-Otak) = 0,706 [DUS] + 0,294 [PACK] + ε | Satuan (JRG) = 0,909 [Delmonte Pedas] + 0,091 [Delmonte Tomat] + ε |
+| **10** | **Pembeli vs Produk** | Pembeli (Adek Frozen) = 2,4 [Nugget] + 1,8 [Otak-Otak] + 1,2 [Kentang] + ε | Produk (Baso Sapi) = 3,2 [Adek Frozen] + 2,1 [Anton] + 1,8 [Rumah Sosis] + ε |
 ''')
 
+# Save to both locations
 with open('05_tugas_regresi_nominal_asosiasi.ipynb', 'w') as f:
     json.dump(notebook, f, indent=1)
 
-print('Notebook 05_tugas_regresi_nominal_asosiasi.ipynb created successfully!')
+if not os.path.exists('notebook'):
+    os.makedirs('notebook')
+with open(os.path.join('notebook', '05_tugas_regresi_nominal_asosiasi.ipynb'), 'w') as f:
+    json.dump(notebook, f, indent=1)
+
+print('Notebook 05_tugas_regresi_nominal_asosiasi.ipynb created successfully in both root and notebook/!')
