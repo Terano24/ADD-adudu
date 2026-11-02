@@ -146,7 +146,7 @@ print(f'Jumlah Pelanggan Outlet Bernama  : {len(df_lrfm)} outlet (+ 1 agregat wa
 print(f'Total Omzet Bersih (6 Bulan)     : Rp {df_clean["OMZET"].sum():,.0f}')
 
 # Menampilkan tabel aturan dan grafik raw frekuensi anomali dengan legenda
-display(df_rules[['id_aturan', 'kategori', 'tingkat_keparahan', 'deskripsi_aturan', 'jumlah_baris_terdampak', 'persentase_baris']].head(14))
+display(df_rules[['kode', 'kategori', 'tingkat', 'deskripsi', 'baris_kena', 'persen', 'tindakan']].head(14))
 display(Image(filename='slide_assets/outlier_ppt/raw/raw_01_frekuensi_aturan_anomali.png'))
 '@
 
@@ -358,7 +358,7 @@ df_clean['DEV_EFEKTIF_PCT'] = (df_clean['HARGA_EFEKTIF'] - med_x1) / med_x1 * 10
 
 outlier_harga_kritis = df_clean[
     (df_clean['DEV_PCT_X1'].abs() > 30.0) | (df_clean['DEV_EFEKTIF_PCT'].abs() > 30.0)
-][['TGL', 'PELANGGAN', 'KODE', 'NAMA_BARANG', 'SATUAN', 'QTY', 'HARGA', 'HARGA_EFEKTIF', 'MEDIAN_X1', 'DEV_EFEKTIF_PCT', 'ATURAN_TERPICU']]
+][['TGL', 'PELANGGAN', 'KODE', 'NAMA_BARANG', 'SATUAN', 'QTY', 'HARGA', 'HARGA_EFEKTIF', 'MEDIAN_X1', 'DEV_EFEKTIF_PCT']]
 
 display(outlier_harga_kritis.sort_values('DEV_EFEKTIF_PCT'))
 
@@ -476,7 +476,7 @@ print('=== 4 TANGGAL LONJAKAN OMZET HARIAN EKSTREM (T01: Z_Robust > 5.0) ===')
 display(daily[daily['Z_Robust_Harian'] > 5.0].sort_values('Total_Omzet', ascending=False))
 
 print('=== 1 TRANSAKSI OUTLIER OPERASIONAL HARI MINGGU (T02) ===')
-display(df_clean[df_clean['TGL'].dt.dayofweek == 6][['TGL', 'PELANGGAN', 'KODE', 'NAMA_BARANG', 'SATUAN', 'QTY', 'HARGA', 'OMZET', 'ATURAN_TERPICU']])
+display(df_clean[df_clean['TGL'].dt.dayofweek == 6][['TGL', 'PELANGGAN', 'KODE', 'NAMA_BARANG', 'SATUAN', 'QTY', 'HARGA', 'OMZET']])
 
 # Menampilkan 2 Grafik Raw: Time-Series Harian & Distribusi Hari Operasional (dengan Legenda Mandiri)
 display(Image(filename='slide_assets/outlier_ppt/raw/raw_09_transaksi_timeseries_harian.png'))

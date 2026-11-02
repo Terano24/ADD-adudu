@@ -41,12 +41,7 @@ function New-PlotCanvas($w=1500, $h=900, $title="", $subtitle="") {
     $bTitle = New-Object System.Drawing.SolidBrush (New-Color "#0F172A")
     $bSub   = New-Object System.Drawing.SolidBrush (New-Color "#475569")
 
-    if ($title -ne "") {
-        $g.DrawString($title, $fTitle, $bTitle, 60, 32)
-    }
-    if ($subtitle -ne "") {
-        $g.DrawString($subtitle, $fSub, $bSub, 60, 64)
-    }
+    # Versi Raw: judul & subjudul sengaja TIDAK digambar (hanya grafik + kotak legenda).
 
     $fTitle.Dispose(); $fSub.Dispose(); $bTitle.Dispose(); $bSub.Dispose()
     return @{ Bitmap = $bmp; Graphics = $g; Width = $w; Height = $h }
