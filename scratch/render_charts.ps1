@@ -659,7 +659,7 @@ foreach ($st in $satStats) {
 
 Draw-Card $g4 944 746 586 92 "#FFF1F2" "#E11D48" 1.5 10
 $g4.DrawString("KESIMPULAN SISI 2 (TIGA DEFINISI KONTEKS 'X' HARGA OUTLIER):", $fSmB, (New-Object System.Drawing.SolidBrush (New-Color "#BE123C")), 960, 756)
-$sum4 = "1. X = SKU + Satuan: 7 baris menyimpang >30% (S01: 4 terlalu murah pada LUTOSA-001 & DEN-002; 3 terlalu mahal pada CONE-004, DEN-011, SHIF-003) + 26 baris |Z_robust| > 5 (S02).`n2. X = Kuantitas (QTY) & Aritmetika: 4 baris diskon ekstrem -50% (A02: Pak Erwin) + 20 baris CASH lupa input harga Rp 0 pada QTY hingga 106 DUS (K03a).`n3. X = Kategori Satuan: 56 transaksi keju/dimsum premium > Pagar IQR Satuan DUS (Rp 573.000)."
+$sum4 = "1. X = SKU + Satuan: 7 baris menyimpang >30% (S01: 4 terlalu murah pada LUTOSA-001 & DEN-002; 3 terlalu mahal pada CONE-004, DEN-011, SHIF-003).`n2. X = Kuantitas (QTY) & Aritmetika: 4 baris diskon ekstrem -50% (A02: Pak Erwin) + 20 baris CASH lupa input harga Rp 0 pada QTY hingga 106 DUS (K03a).`n3. X = Kategori Satuan: 56 transaksi keju/dimsum premium > Pagar IQR Satuan DUS (Rp 573.000)."
 $g4.DrawString($sum4, $fSm, $bDark, (New-Object System.Drawing.RectangleF(960, 774, 560, 62)))
 
 $bmp4.Save("$outDir\fig4_harga_outlier_konteks_x.png", [System.Drawing.Imaging.ImageFormat]::Png)
@@ -839,7 +839,7 @@ foreach ($bl in $bLabels) {
 
 Draw-Card $g5 856 642 672 194 "#F0F9FF" "#0284C7" 1.5 10
 $g5.DrawString("RINGKASAN DEFINISI TRANSAKSI OUTLIER (SISI 3A & 3B):", $fBold, (New-Object System.Drawing.SolidBrush (New-Color "#0369A1")), 872, 654)
-$sum5 = "1. Outlier Nilai Baris (Log-IQR & 3*SD):`n   - Median nilai baris = Rp 240.000 (Q1=Rp 120rb, Q3=Rp 558rb). Sebanyak 79 baris melampaui Mean + 3*SD (Rp 6,62 Jt), dan 2 transaksi mencapai Rp 63,20 Juta (200 DUS Minaku Otak-Otak oleh Pak Sutarmuji pada 3 & 13 Agu 2020).`n2. Outlier Kuantitas Spesifik SKU (Z_robust QTY > 8 / S03 = 237 baris):`n   - Pembelian 400 PACK Bakso Mie (Anton), 240 PACK Bakso Ikan (Egi/Putri), 200 PACK Cireng Bonju (Adek Frozen).`n3. Outlier Level Keranjang Struk (LOF & k-NN pada 1.495 Nota):`n   - Memisahkan Borongan Spesialis 1-SKU (Pak Sutarmuji, Mas Rohmat, Kubang Jaya) vs Borongan Restok Supermarket (Adek Frozen: 24-39 SKU berbeda dalam sehari senilai Rp 43-58 Juta)."
+$sum5 = "1. Outlier Nilai Baris (Log-IQR & 3*SD):`n   - Median nilai baris = Rp 240.000 (Q1=Rp 120rb, Q3=Rp 558rb). Sebanyak 79 baris melampaui Mean + 3*SD (Rp 6,62 Jt), dan 2 transaksi mencapai Rp 63,20 Juta (200 DUS Minaku Otak-Otak oleh Pak Sutarmuji pada 3 & 13 Agu 2020).`n2. Outlier Kuantitas Spesifik SKU (Pagar Mean + 3*SD QTY per SKU / S03 = 123 baris):`n   - Pembelian 400 PACK Bakso Mie (Anton), 240 PACK Bakso Ikan (Egi/Putri), 200 PACK Cireng Bonju (Adek Frozen).`n3. Outlier Level Keranjang Struk (LOF & k-NN pada 1.495 Nota):`n   - Memisahkan Borongan Spesialis 1-SKU (Pak Sutarmuji, Mas Rohmat, Kubang Jaya) vs Borongan Restok Supermarket (Adek Frozen: 24-39 SKU berbeda dalam sehari senilai Rp 43-58 Juta)."
 $g5.DrawString($sum5, $fSm, $bDark, (New-Object System.Drawing.RectangleF(872, 678, 644, 152)))
 
 $bmp5.Save("$outDir\fig5_transaksi_outlier_multidimensi.png", [System.Drawing.Imaging.ImageFormat]::Png)
@@ -856,14 +856,14 @@ $g6.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFi
 $g6.Clear((New-Color "#F8FAFC"))
 
 Draw-Header $g6 "SISI 3C  |  DETEKSI TRANSAKSI OUTLIER TEMPORAL: LONJAKAN OMZET HARIAN & ANOMALI HARI MINGGU" `
-    "4 Hari Mengalami Lonjakan Omzet Ekstrem (Z_robust > 5: hingga Rp 188,5 Jt) & 1 Transaksi Jatuh di Hari Minggu" `
+    "4 Hari Mengalami Lonjakan Omzet Ekstrem (Mean + 3*SD: hingga Rp 188,5 Jt) & 1 Transaksi Jatuh di Hari Minggu" `
     "Kiri: Time-Series Omzet Harian (143 Hari Aktif, Apr-Sep 2020)  |  Kanan: Pola Operasional Mingguan & Bukti Anomali Hari Minggu (T02)"
 
 Draw-Card $g6 48 124 960 730 "#FFFFFF" "#E2E8F0" 1.5 12
 Draw-Card $g6 1032 124 520 730 "#FFFFFF" "#E2E8F0" 1.5 12
 
 $g6.DrawString("Time-Series Omzet Harian Toko Frozen Food (1 April - 30 September 2020)", $fSec, $bDark, 72, 144)
-$g6.DrawString("Median Harian = Rp 25,65 Jt (MAD = Rp 13,56 Jt)  |  Ambang Lonjakan Z_robust > 5 = Rp 93,45 Jt (Menjaring 4 Hari Outlier)", $fSubSec, $bMuted, 72, 170)
+$g6.DrawString("Median Harian = Rp 21,32 Jt  |  Ambang Lonjakan Mean + 3*SD = Rp 127,89 Jt (Menjaring 4 Hari Outlier)", $fSubSec, $bMuted, 72, 170)
 
 $daily = $df | Group-Object TGL | ForEach-Object {
     $sumO = ($_.Group | ForEach-Object { [double]$_.OMZET } | Measure-Object -Sum).Sum / 1e6
@@ -895,15 +895,15 @@ $g6.DrawLine($pAxis, $t6L, $t6B, $t6R, $t6B)
 $g6.DrawLine($pAxis, $t6L, $t6T, $t6L, $t6B)
 $g6.DrawString("Kronologi Tanggal Transaksi (April - September 2020)", $fSmB, $bDark, 380, ($t6B + 32))
 
-# Median & Z_robust > 5 lines
-$gyMed6 = Map-T6Y 25.65
-$gyZ5_6 = Map-T6Y 93.45
+# Median & Mean + 3*SD lines
+$gyMed6 = Map-T6Y 21.32
+$gyZ5_6 = Map-T6Y 127.89
 $pMed6 = New-Object System.Drawing.Pen ((New-Color "#0284C7"), 1.8)
 $pMed6.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
 $g6.DrawLine($pMed6, $t6L, $gyMed6, $t6R, $gyMed6)
 $g6.DrawLine($pDashC, $t6L, $gyZ5_6, $t6R, $gyZ5_6)
-$g6.DrawString("Ambang Outlier Z_robust > 5 (Rp 93,5 Jt)", $fSmB, (New-Object System.Drawing.SolidBrush (New-Color "#E11D48")), ($t6L + 12), ($gyZ5_6 - 18))
-$g6.DrawString("Median Harian (Rp 25,7 Jt)", $fSmB, (New-Object System.Drawing.SolidBrush (New-Color "#0284C7")), ($t6L + 12), ($gyMed6 - 18))
+$g6.DrawString("Ambang Outlier Mean + 3*SD (Rp 127,9 Jt)", $fSmB, (New-Object System.Drawing.SolidBrush (New-Color "#E11D48")), ($t6L + 12), ($gyZ5_6 - 18))
+$g6.DrawString("Median Harian (Rp 21,3 Jt)", $fSmB, (New-Object System.Drawing.SolidBrush (New-Color "#0284C7")), ($t6L + 12), ($gyMed6 - 18))
 
 # Line & points for daily omzet
 $pts6 = New-Object 'System.Drawing.PointF[]' $daily.Count
@@ -921,7 +921,7 @@ foreach ($d in $daily) {
         $g6.FillEllipse($br, ($px - 6), ($py - 6), 12, 12)
         $g6.DrawString("Minggu 30 Agu (PAK PEPI: 1 tx = Rp 180rb!)", $fSmB, $br, ($px - 140), ($py - 24))
         $br.Dispose()
-    } elseif ($d.OmzetJt -gt 93.45) {
+    } elseif ($d.OmzetJt -gt 127.89) {
         $br = New-Object System.Drawing.SolidBrush (New-Color "#E11D48")
         $g6.FillEllipse($br, ($px - 6), ($py - 6), 12, 12)
         $br.Dispose()

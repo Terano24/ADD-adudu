@@ -1,0 +1,219 @@
+cells: 14
+--- [0] markdown ---
+# Tugas Praktik Kelompok: Multi-Perspective Outlier Detection pada Data Penjualan Frozen Food
+
+**Mata Kuliah:** Analisis Data Eksploratif & Deteksi Anomali (Presentasi Minggu ke-10 / Minggu ke-11)  
+**Referensi Materi Kuliah:**  
+1. **Week 5 -- Find Anomaly (`Week 5 - Find Anomaly.pptx`)**: Definisi Outlier menurut **Hawkins (1980)** (*observasi yang menyimpang jauh dari observasi lain sehingga menimbulkan kecurigaan bahwa ia dihasilkan oleh mekanisme yang berbeda*), Contoh Kasus *Purchasing Behavior* (pembeli yang datang sekali/jarang namun langsung memborong besar), Pendekatan Grafis (*Boxplot 1D*, *Scatter Plot 2D*), Pendekatan Statistik (*IQR*, *Mean +/- 3 SD*, *Median & MAD*), dan Penyebab Outlier (*Human Error*, *Instrument Error*, *Sampling Error*, *Data Manipulation*, *True Business Outlier*).  
+2. **Week 7 -- Outlier Detection in Machine Learning (`Week 7 - OutlierDetection ML.ppt`)**: Pendekatan Grafis Multivariat (*Convex Hull*), *Distance-Based Outlier Detection* (**k-Neare
+
+--- [1] markdown ---
+## Kepatuhan Terhadap Kaidah Visualisasi Data (*Data Visualization Best Practices*)
+
+Seluruh grafik dalam notebook ini (serta aset gambar resolusi tinggi `1600x900` px `16:9` di folder `slide_assets/outlier_ppt/` untuk slide PPT) dirancang mengikuti prinsip **Edward Tufte** (*Data-Ink Ratio*) dan **Cole Nussbaumer Knaflic** (*Storytelling with Data*):
+1. **Action Title & Sub-Header Kontekstual**: Setiap grafik memiliki *kicker* kategori, judul utama yang langsung menyatakan **kesimpulan kuantitatif**, serta sub-judul yang menjelaskan metrik, ukuran sampel ($N$), dan pagar statistik yang digunakan.
+2. **Pengkodean Warna Pra-Atentif (*Pre-Attentive Color Encoding*) yang Konsisten**:
+   - **Abu-abu Netral (`#64748B` / `#94A3B8`)**: Data normal (*inliers*) atau konteks latar agar tidak mendistraksi mata.
+   - **Biru Korporat (`#0284C7`)**: Distribusi acuan utama, median, atau klaster mayoritas.
+   - **Oranye Amber (`#F59E0B` / `#D97706`)**: *Outlier* moderat (melewati pagar `1.5 * IQR` ata
+
+--- [2] markdown ---
+---
+## Tahap 0: Pra-Pemrosesan & Pemisahan *Data Error* vs *Outlier Bisnis Sah*
+
+Mengacu pada **Slide 3 & Slide 10 (`Week 5 - Find Anomaly.pptx`)**, langkah paling krusial sebelum menjalankan algoritma deteksi outlier adalah memastikan bahwa pencilan yang dianalisis bukan sekadar *garbage-in* akibat kesalahan ketik atau inkonsistensi master data:
+- **Normalisasi Entitas Pelanggan (`R03`)**: Dalam file mentah `Data Penjualan April - Sep 2020.xlsx` (`6.779` baris), terdapat **229 penulisan nama pelanggan** karena awalan kode kanal seperti `C - ADEK FROZEN` vs `ADEK FROZEN` dan spasi ganda. Jika tidak diseragamkan menjadi **181 entitas kanonik** (`180` outlet bernama + `CASH`), maka pembelian pelanggan besar akan terpecah menjadi dua akun sedang sehingga gagal terdeteksi sebagai *outlier*!
+- **Pemisahan Mekanisme Non-Penjualan (`K03b` & `K05` -- Definisi Hawkins)**: Terdapat **38 baris** pengeluaran barang sampel/promosi gratis (`SAMPEL CRB`, `SAMPLING MITRAKU`, dll.) sebanyak 1-3 PACK be
+
+--- [3] code ---
+import warnings
+warnings.filterwarnings('ignore')
+import pandas as pd
+import numpy as np
+from IPython.display import display, Image
+
+# 1. Memuat data bersih hasil pipeline normalisasi & katalog log anomali
+df_clean = pd.read_csv('bersih/penjualan_bersih.csv', parse_dates=['TGL'])
+df_lrfm  = pd.read_csv('bersih/lrfm_pelanggan.csv')
+df_rules = pd.read_csv('bersih/katalog_aturan.csv')
+df_log   = pd.read_csv('bersih/log_anomali.csv')
+
+print(f'Total Transaksi Komersial Bersih : {len(df_clean):,} baris')
+print(f'Rentang Waktu Transaksi          : {df_clean["TGL"].min().date()} s.d. {df_clean["TGL"].max().date()} ({df_clean["TGL"].nunique()} hari aktif)')
+print(f'Jumlah SKU Kanonik Unik          : {df_clean["KODE"].nunique()} SKU ({df_clean["SATUAN"].nunique()} satuan kemasan)')
+print(f'Jumlah Pelanggan Outlet Bernama  : {len(df_lrfm)} outlet (+ 1 agregat walk-in CASH = {df_clean["PELANGGAN"].nunique()} entitas)')
+print(f'Total Omzet Bersih (6 Bulan)     : Rp {df_clean["OMZET"].sum():,.0f}')
+
+
+--- [4] markdown ---
+---
+## Sisi 1: Menemukan Pelanggan yang Outlier (*Customer Outlier Detection*)
+
+### 1.1 Definisi *Abnormality* Pelanggan (Hasil Diskusi Kelompok)
+Sebelum menerapkan rumus statistik maupun algoritma *Machine Learning*, kami terlebih dahulu memisahkan entitas **`CASH`** (agregat penjualan tunai eceran tanpa nama dengan `1.441` baris senilai `Rp 167,45 Juta`) dari **180 pelanggan outlet bernama**, karena `CASH` bukan satu pelanggan tunggal melainkan kumpulan ribuan pembeli eceran.
+
+Berdasarkan sintesis materi **Week 5 (Slide 4: Contoh *Purchasing* -- pelanggan yang jarang beli tapi sekalinya beli langsung berjumlah sangat besar)** dan **Week 7 (Slide 14-22: Masalah kepadatan lokal $p_1$ vs $p_2$ pada LOF)**, kelompok kami menetapkan **3 dimensi ketidaknormalan (*abnormality*) pelanggan**:
+1. **Tipe $p_1$ -- *Global Whale Outliers* (Volume & Frekuensi Raksasa)**:
+   - Pelanggan dengan total nilai belanja (**Monetary $M$**) atau jumlah hari kedatangan (**Frequency $F$**) yang melampaui paga
+
+--- [5] code ---
+# SISI 1A: Deteksi Outlier Pelanggan secara Statistik Deskriptif (IQR, 3-Sigma, MAD) & Grafis (Boxplot + Convex Hull)
+cust = df_lrfm.copy()
+cust['AOV'] = cust['M'] / cust['F']
+
+# Menghitung batas IQR dan 3-Sigma untuk Monetary (M), Frequency (F), dan AOV (M/F)
+stats_rows = []
+for col, label in [('M', 'Monetary (Rp)'), ('F', 'Frequency (Hari)'), ('AOV', 'AOV = M/F (Rp/Hari)'), ('R', 'Recency (Hari)')]:
+    q1, med, q3 = cust[col].quantile([0.25, 0.50, 0.75])
+    iqr = q3 - q1
+    fence_iqr = q3 + 1.5 * iqr
+    fence_3sd = cust[col].mean() + 3.0 * cust[col].std()
+    stats_rows.append({
+        'Metrik': label,
+        'Mean': cust[col].mean(), 'SD': cust[col].std(),
+        'Median': med, 'IQR': iqr,
+        'Pagar_1.5_IQR': fence_iqr, 'N_Outlier_IQR': int((cust[col] > fence_iqr).sum()),
+        'Pagar_3_SD': fence_3sd, 'N_Outlier_3SD': int((cust[col] > fence_3sd).sum())
+    })
+df_stat_cust = pd.DataFrame(stats_rows)
+display(df_stat_cust)
+display(Image(filename='slide_assets/outlier_ppt
+
+--- [6] markdown ---
+### 1.3 Deteksi Outlier Pelanggan Multivariat dengan *Machine Learning* (Materi Week 7)
+
+Mengapa pendekatan univariat (1D Boxplot) saja tidak cukup? Seperti dijelaskan dalam **Slide 12-22 (`Week 7 - OutlierDetection ML.ppt`)**:
+1. **Convex Hull (Pendekatan Grafis 2D)**: Mencari titik-titik sudut poligon cembung terluar yang membungkus seluruh data pelanggan pada bidang $(F, M)$. Terdapat **7 pelanggan pembentuk titik sudut Convex Hull**, yaitu: `TOKO CITA RASA BARU` ($F=50, M=\text{Rp }547,8\text{ Jt}$), `ADEK FROZEN` ($F=11, M=\text{Rp }420,7\text{ Jt}$), `PAK SUTARMUJI` ($F=2, M=\text{Rp }126,4\text{ Jt}$), `AMANAH FROZEN` ($F=80, M=\text{Rp }113,7\text{ Jt}$), `SUCI` ($F=46, M=\text{Rp }24,0\text{ Jt}$), `FADIL ANAK BOS` ($F=26, M=\text{Rp }4,7\text{ Jt}$), dan titik ujung bawah ($F=1, M=\text{Rp }60\text{ rb}$).
+2. **Distance-Based Outlier Detection (*k-NN Distance*, $k=5$)**: Menghitung jarak rata-rata setiap pelanggan ke $k=5$ tetangga terdekatnya pada ruang fitur standar $(\log 
+
+--- [7] code ---
+from sklearn.neighbors import NearestNeighbors, LocalOutlierFactor
+from sklearn.preprocessing import StandardScaler
+from scipy.spatial import ConvexHull
+
+# Ruang fitur multivariat pelanggan: [log10(F), log10(M), log10(AOV), R, L]
+X_raw = np.column_stack([
+    np.log10(cust['F']),
+    np.log10(cust['M']),
+    np.log10(cust['AOV']),
+    cust['R'],
+    cust['L']
+])
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_raw)
+
+# 1. Distance-Based: k-NN Average Distance (k = 5)
+nn = NearestNeighbors(n_neighbors=6) # termasuk dirinya sendiri
+nn.fit(X_scaled)
+dists, _ = nn.kneighbors(X_scaled)
+cust['kNN_Dist'] = dists[:, 1:].mean(axis=1)
+
+# 2. Density-Based: Local Outlier Factor / LOF (k = 5)
+lof = LocalOutlierFactor(n_neighbors=5)
+lof.fit_predict(X_scaled)
+cust['LOF_Score'] = -lof.negative_outlier_factor_
+
+# 3. Convex Hull pada ruang 2D (Frequency vs Monetary)
+hull = ConvexHull(cust[['F', 'M']].values)
+cust['Is_ConvexHull'] = False
+cust.loc[hull.vertices, 'Is_ConvexHull'] = True
+
+# Menam
+
+--- [8] markdown ---
+---
+## Sisi 2: Menemukan Harga Barang yang Outlier (*Terlalu Murah atau Terlalu Mahal Bila Dilihat dari $X$*)
+
+### 2.1 Mengapa Variabel Konteks $X$ Wajib Ditetapkan?
+Instruksi tugas secara spesifik berbunyi: **"Temukan harga barang yang outlier (terlalu murah atau terlalu mahal bila dilihat dari $X$)"**.  
+Secara bisnis dan statistik, harga sebuah produk tidak dapat dinilai mahal atau murah secara global tanpa variabel pembanding $X$: misalnya harga **Rp 240.000** adalah harga **normal (median)** apabila $X = \text{Satuan DUS}$, tetapi merupakan **outlier super mahal ($13\times$ lipat median!)** apabila $X = \text{Satuan PACK}$ (yang mediannya Rp 18.000).
+
+Oleh karena itu, kelompok kami mendefinisikan **3 Perspektif Konteks $X$**:
+1. **Konteks $X_1 =$ Kode Barang (SKU) + Satuan Kemasan yang Sama (`KODE + SATUAN`)**:
+   - Membandingkan harga transaksi terhadap **Harga Median SKU + Satuan yang sama** ($\text{Deviasi Relatif} = \frac{\text{HARGA} - \text{Median}_{X_1}}{\text{Median}_{X_1}
+
+--- [9] code ---
+# SISI 2: Deteksi Harga Barang yang Outlier Dilihat dari Konteks X1 (SKU+Satuan), X2 (QTY & Diskon Efektif), dan X3 (Satuan Kemasan)
+df_clean['HARGA_EFEKTIF'] = df_clean['OMZET'] / df_clean['QTY']
+
+# Menghitung Median dan MAD per X1 = (KODE, SATUAN)
+grp_x1 = df_clean.groupby(['KODE', 'SATUAN'])['HARGA']
+med_x1 = grp_x1.transform('median')
+mad_x1 = grp_x1.transform(lambda s: np.median(np.abs(s - np.median(s))))
+df_clean['MEDIAN_X1'] = med_x1
+df_clean['DEV_PCT_X1'] = (df_clean['HARGA'] - med_x1) / med_x1 * 100.0
+df_clean['DEV_EFEKTIF_PCT'] = (df_clean['HARGA_EFEKTIF'] - med_x1) / med_x1 * 100.0
+
+# Menyaring transaksi dengan harga terlalu murah (< -30%) atau terlalu mahal (> +30%)
+outlier_harga_kritis = df_clean[
+    (df_clean['DEV_PCT_X1'].abs() > 30.0) | (df_clean['DEV_EFEKTIF_PCT'].abs() > 30.0)
+][['TGL', 'PELANGGAN', 'KODE', 'NAMA_BARANG', 'SATUAN', 'QTY', 'HARGA', 'HARGA_EFEKTIF', 'MEDIAN_X1', 'DEV_EFEKTIF_PCT', 'ATURAN_TERPICU']]
+
+print(f'Jumlah Transaksi Outlier Harga Kritis (|Devi
+
+--- [10] markdown ---
+---
+## Sisi 3: Menemukan Transaksi yang Outlier (*Transaction Outlier Detection*)
+
+### 3.1 Definisi *Abnormality* Transaksi (Hasil Diskusi Kelompok)
+Dalam diskusi kelompok, kami menyepakati bahwa istilah **"Transaksi yang Outlier"** pada bisnis distribusi *frozen food* harus dianalisis pada **3 level granularitas**:
+1. **Sisi 3A -- Outlier Level Baris Item (`N = 6.740` baris)**:
+   - **Nilai Uang Baris (`OMZET`)**: Karena distribusi `OMZET` sangat miring kanan (Median = `Rp 240.000`, Q1 = `Rp 120.000`, Q3 = `Rp 558.000`, Mean = `Rp 685.616`, SD = `Rp 1.979.738`), kami menerapkan **Pagar Log-IQR** pada $\log_{10}(\text{OMZET})$:
+     - Pagar Moderat $Q_3 + 1,5\times\text{IQR}_{\log} = \text{Rp } 5.623.413$ (**208 baris outlier**).
+     - Pagar Klasik $\text{Mean} + 3\times\text{SD} = \text{Rp } 6.624.829$ (**79 baris outlier**).
+     - Pagar Ekstrem (`S04`) $Q_3 + 3,0\times\text{IQR}_{\log} = \text{Rp } 54.907.061$ (**2 baris mega-outlier**, yaitu pembelian **200 DUS `MIN-001` Minaku Ot
+
+--- [11] code ---
+# SISI 3A & 3B: Deteksi Transaksi Outlier pada Level Baris Item (N = 6.740) & Level Keranjang Nota (N = 1.495)
+log_omz = np.log10(df_clean['OMZET'])
+q1_lg, q3_lg = log_omz.quantile([0.25, 0.75])
+iqr_lg = q3_lg - q1_lg
+fence_log_15 = 10 ** (q3_lg + 1.5 * iqr_lg)
+fence_log_30 = 10 ** (q3_lg + 3.0 * iqr_lg)
+fence_3sd_omz = df_clean['OMZET'].mean() + 3.0 * df_clean['OMZET'].std()
+
+print(f'Pagar Log-IQR 1.5x : Rp {fence_log_15:,.0f} -> {(df_clean["OMZET"] > fence_log_15).sum()} baris outlier')
+print(f'Pagar Mean + 3*SD  : Rp {fence_3sd_omz:,.0f} -> {(df_clean["OMZET"] > fence_3sd_omz).sum()} baris outlier')
+print(f'Pagar Log-IQR 3.0x : Rp {fence_log_30:,.0f} -> {(df_clean["OMZET"] > fence_log_30).sum()} baris outlier ekstrem (S04)')
+
+# Agregasi Level Keranjang Struk Harian (TGL + PELANGGAN)
+baskets = df_clean.groupby(['TGL', 'PELANGGAN']).agg(
+    N_Items=('KODE', 'count'),
+    Total_QTY=('QTY', 'sum'),
+    Total_Omzet=('OMZET', 'sum')
+).reset_index()
+
+display(df_clean.sort_values('OMZET', 
+
+--- [12] code ---
+# SISI 3C: Deteksi Outlier Transaksi Temporal (Lonjakan Omzet Harian T01 & Anomali Hari Minggu T02)
+daily = df_clean.groupby('TGL').agg(
+    Jumlah_Baris=('KODE', 'count'),
+    Jumlah_Nota=('PELANGGAN', 'nunique'),
+    Total_QTY=('QTY', 'sum'),
+    Total_Omzet=('OMZET', 'sum')
+).reset_index()
+
+med_day = daily['Total_Omzet'].median()
+mad_day = np.median(np.abs(daily['Total_Omzet'] - med_day))
+daily['Z_Robust_Harian'] = (daily['Total_Omzet'] - med_day) / (1.4826 * mad_day)
+daily['Hari'] = daily['TGL'].dt.day_name()
+
+print('=== 4 TANGGAL LONJAKAN OMZET HARIAN EKSTREM (T01: Z_Robust > 5.0) ===')
+display(daily[daily['Z_Robust_Harian'] > 5.0].sort_values('Total_Omzet', ascending=False))
+
+print('=== 1 TRANSAKSI OUTLIER OPERASIONAL HARI MINGGU (T02) ===')
+display(df_clean[df_clean['TGL'].dt.dayofweek == 6][['TGL', 'PELANGGAN', 'KODE', 'NAMA_BARANG', 'SATUAN', 'QTY', 'HARGA', 'OMZET', 'ATURAN_TERPICU']])
+display(Image(filename='slide_assets/outlier_ppt/fig6_transaksi_temporal_operasional.png'))
+
+--- [13] markdown ---
+---
+## Bagian 4: Panduan Struktur Slide Presentasi PowerPoint (Siap Pakai)
+
+Seluruh grafik beresolusi tinggi (`1600 x 900` px, rasio `16:9` widescreen) telah disimpan di direktori `slide_assets/outlier_ppt/` dan dirancang agar **1 gambar = 1 slide utuh** dengan hierarki visual yang langsung siap dipresentasikan di Minggu ke-10 / Minggu ke-11:
+
+| Urutan Slide PPT | File Gambar Aset (`slide_assets/outlier_ppt/`) | Pesan Utama Slide (*Key Takeaway* untuk Presentasi) |
+| :---: | :--- | :--- |
+| **Slide 1** | `fig1_overview_pipeline.png` | **Pemisahan Data Error vs Outlier Bisnis Sah (Materi Week 5 Slide 3 & 10):** Menunjukkan bagaimana 6.779 baris mentah dibersihkan menjadi 6.740 transaksi komersial dengan memisahkan 38 baris sampel gratis (`K03b`), memulihkan 20 baris `CASH` lupa input harga (`K03a` senilai Rp 90,72 Jt), dan menormalisasi 229 nama pelanggan menjadi 180 outlet. |
+| **Slide 2** | `fig2_pelanggan_statistik_grafis.png` | **Sisi 1A -- Pelanggan Outlier secara Grafis & Statisti
+

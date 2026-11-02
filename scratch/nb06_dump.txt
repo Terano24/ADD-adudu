@@ -1,0 +1,267 @@
+cells: 15
+--- [0] markdown ---
+# Analisis Deteksi Outlier Multi-Dimensi (Dataset Frozen Food)
+### Mata Kuliah: Analisis Data Diskrit (ADD) — Institut Teknologi Sepuluh Nopember (ITS)
+**Dataset Sumber:** `Data Penjualan April - Sep 2020.xlsx` (Data Penjualan Mentah Pertama Kali Diberikan, $N = 6.779$ baris)
+
+---
+
+## 📌 Latar Belakang & Instruksi Tugas
+Berdasarkan arahan eksplorasi data penjualan produk *frozen food*:
+1. **Bukalah data frozen food yang pertama kali diberikan** (`Data Penjualan April - Sep 2020.xlsx`).
+2. **Lakukan outlier detection pada data tersebut dalam beberapa sisi/dimensi**:
+   - **Temukan pelanggan yang outlier** (definisi *abnormality* ditentukan oleh diskusi kelompok).
+   - **Temukan harga barang yang outlier** (terlalu murah atau terlalu mahal bila dilihat dari dimensi $X$).
+   - **Temukan transa
+
+--- [1] code ---
+import os
+import zipfile
+import datetime
+import math
+from collections import defaultdict, Counter
+from xml.etree import ElementTree as ET
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+
+# Konfigurasi Tampilan Pandas
+pd.set_option('display.max_columns', 35)
+pd.set_option('display.max_colwidth', None)
+pd.set_option('display.width', 1000)
+pd.set_option('display.float_format', lambda v: f'{v:,.2f}')
+
+# Konfigurasi Visualisasi
+plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
+plt.rcParams['font.sans-serif'] = 'DejaVu Sans, Arial, Helvetica'
+plt.rcParams['font.size'] = 9.5
+plt.rcParams['figure.dpi'] = 110
+
+# Palet warna visualisasi
+C_PRIMARY = '#1f77b4'
+C_ALERT = '#d6272
+
+--- [2] markdown ---
+---
+## 1. Pemuatan Data Mentah Pertama Kali Diberikan (`Data Penjualan April - Sep 2020.xlsx`)
+
+Data mentah berformat `.xlsx` dibaca secara utuh tanpa modifikasi awal. Disediakan parser berbasis *Standard Library* (`zipfile` + `xml.etree`) sebagai *fallback* otomatis apabila modul `openpyxl` belum terpasang di kernel.
+
+
+--- [3] code ---
+def baca_excel_frozen_food(path):
+    """Membaca file Excel mentah dengan fallback xml/zipfile otomatis."""
+    try:
+        df = pd.read_excel(path, sheet_name='Sheet1')
+        print("-> Sukses membaca via pd.read_excel.")
+    except Exception as e:
+        print(f"-> Menggunakan pembaca zip/xml bawaan python ({e})...")
+        ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+        z = zipfile.ZipFile(path)
+        shared = [''.join(t.text or '' for t in si.iter(ns + 't'))
+                  for si in ET.fromstring(z.read('xl/sharedStrings.xml'))]
+
+        def col_idx(ref):
+            letters = ''.join(c for c in ref if c.isalpha())
+            n = 0
+            for c in letters:
+                n = n * 26 + (ord(c) - 64)
+            return n - 1
+
+        rows = []
+  
+
+--- [4] markdown ---
+---
+## 2. Dimensi 1: Outlier Detection pada Pelanggan (`PELANGGAN`)
+
+### 🧠 Hasil Diskusi Kelompok Mengenai Definisi *Abnormality* Pelanggan
+Dalam analisis ritel dan distribusi B2B, pelanggan tidak berdistribusi normal melainkan sangat miring (*heavy-tailed distribution*). Kelompok kami mendefinisikan *abnormality* pelanggan melalui **6 sub-kategori perilaku**:
+
+1. **Sub-Kategori 1.1: Super-Wholesaler (Pelanggan Paus Moneter Ekstrem)**
+   - **Definisi *Abnormality*:** Pelanggan yang kontribusi omzet akumulatifnya melampaui pagar luar Tukey ($Q_3 + 3 	imes 	ext{IQR}$) atau secara individual menyumbang $> 5\%$ dari seluruh pendapatan toko.
+   - **Abnormality-nya Apa:** Menghasilkan konsentrasi risiko pendapatan yang sangat timpang. Sebagian kecil pelanggan ini menyerap tonase komoditas yang m
+
+--- [5] code ---
+# Standardisasi nama pelanggan untuk membedakan entitas riil vs varian prefiks
+def bersihkan_nama_pelanggan(nama):
+    if pd.isna(nama) or str(nama).strip() == '':
+        return 'TIDAK DIKETAHUI'
+    s = str(nama).strip().upper()
+    for prefix in ['C - ', 'F - ', 'E - ', 'I - ', 'MIAMI - ', 'M - ']:
+        if s.startswith(prefix):
+            s = s[len(prefix):].strip()
+    s = s.replace('(MITRAKU)', '').strip()
+    return ' '.join(s.split())
+
+df_mentah['PELANGGAN_BERSIH'] = df_mentah['NAMA'].apply(bersihkan_nama_pelanggan)
+
+# Agregasi metrik perilaku pelanggan
+tgl_maks = df_mentah['TGL_DT'].max()
+total_omzet_toko = df_mentah['JUMLAH'].sum()
+
+agg_cust = df_mentah.groupby('PELANGGAN_BERSIH').agg(
+    total_omzet=('JUMLAH', 'sum'),
+    total_qty=('QTY', 'sum'),
+    total_baris=('JUMLAH', 
+
+--- [6] code ---
+# Membangun tabel formal rincian outlier pelanggan beserta definisi dan alasan abnormality-nya
+daftar_outlier_pelanggan = []
+
+# 1. Super-Wholesaler (Paus)
+for _, r in agg_cust[agg_cust['total_omzet'] > pagar_luar_omzet].iterrows():
+    if r['PELANGGAN_BERSIH'] == 'CASH': continue
+    daftar_outlier_pelanggan.append({
+        'KATEGORI_OUTLIER': '1.1 Super-Wholesaler (Paus)',
+        'ENTITAS': r['PELANGGAN_BERSIH'],
+        'NILAI_AKTUAL': f"Omzet: Rp {r['total_omzet']:,.0f} ({r['persen_omzet']:.2f}% toko)",
+        'NILAI_ACUAN_NORMAL': f"Pagar Tukey: Rp {pagar_luar_omzet:,.0f} (Median: Rp {agg_cust['total_omzet'].median():,.0f})",
+        'DEFINISI_ABNORMALITY': 'Akumulasi belanja menembus pagar luar Tukey (Q3 + 3*IQR) atau menyumbang >5% omzet toko.',
+        'ABNORMALITY_NYA_APA': f"Ko
+
+--- [7] code ---
+fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+
+# Plot 1: Scatter Frekuensi vs Omzet (Log-Log)
+df_plot_cust = agg_cust[agg_cust['total_omzet'] > 0].copy()
+sns.scatterplot(
+    data=df_plot_cust,
+    x='total_baris',
+    y='total_omzet',
+    alpha=0.6,
+    color=C_PRIMARY,
+    s=65,
+    ax=axes[0]
+)
+
+# Highlight Pelanggan Outlier Utama
+high_labels = ['TOKO CITA RASA BARU', 'ADEK FROZEN', 'ANTON', 'PAK SUTARMUJI', 'MAS ROHMAT', 'CASH']
+for _, r in df_plot_cust[df_plot_cust['PELANGGAN_BERSIH'].isin(high_labels)].iterrows():
+    axes[0].scatter(r['total_baris'], r['total_omzet'], color=C_ALERT, s=130, zorder=5)
+    axes[0].annotate(
+        r['PELANGGAN_BERSIH'],
+        (r['total_baris'], r['total_omzet']),
+        textcoords="offset points",
+        xytext=(6, 5),
+        fontweight='bold',
+
+--- [8] markdown ---
+---
+## 3. Dimensi 2: Outlier Detection pada Harga Barang (`HARGA`) Dilihat dari Dimensi $X$
+
+### 🧠 Hasil Diskusi Kelompok Mengenai Sudut Pandang $X$
+Instruksi tugas menyatakan: *"Temukan harga barang yang outlier (terlalu murah atau terlalu mahal bila dilihat dari X)"*. Diskusi kelompok kami merumuskan 5 sudut pandang $X$ konkrit:
+
+1. **Sudut Pandang $X_1$: Dilihat dari $X = 	ext{Harga Standar Nol (Rp 0 / Free Items)}$**
+   - **Definisi *Abnormality*:** Komoditas komersial secara definisi bisnis wajib memiliki $	ext{HARGA} > 0$. Ditemukan 59 baris berharga Rp 0.
+   - **Abnormality-nya Apa:** Terbagi atas dua fenomena yang sangat berbeda secara substansi:
+     * **Missing Price (Kasir Lupa Input — 20 baris):** Terjadi pada transaksi borongan tunai `CASH` volume besar (hingga 106 DUS kentang
+
+--- [9] code ---
+# Hitung Median Harga per SKU dan Satuan
+sku_sat_valid = df_mentah[df_mentah['HARGA'] > 0].copy()
+med_sku_sat = sku_sat_valid.groupby(['KODEBARA', 'SATUAN'])['HARGA'].agg(
+    median_harga='median',
+    mean_harga='mean',
+    std_harga='std',
+    count_trx='count'
+).reset_index()
+
+df_h = df_mentah.merge(med_sku_sat, on=['KODEBARA', 'SATUAN'], how='left')
+df_h['deviasi_persen'] = ((df_h['HARGA'] - df_h['median_harga']) / df_h['median_harga']) * 100
+df_h['nominal_kotor'] = df_h['QTY'] * df_h['HARGA']
+df_h['rasio_diskon'] = np.where(df_h['nominal_kotor'] > 0, df_h['JUMLAH'] / df_h['nominal_kotor'], 1.0)
+
+daftar_outlier_harga = []
+
+# X1: Harga Nol (Missing Price vs Tester)
+zero_cash_rows = df_h[(df_h['HARGA'] == 0) & (df_h['PELANGGAN_BERSIH'] == 'CASH')]
+for _, r in zero_cash_rows.head(2).iter
+
+--- [10] code ---
+fig, axes = plt.subplots(1, 2, figsize=(15, 5.5))
+
+# Plot 1: Sebaran Deviasi Persentase Harga terhadap Median SKU
+dev_valid = df_h[df_h['HARGA'] > 0]['deviasi_persen'].dropna()
+sns.histplot(dev_valid, bins=50, kde=True, color=C_PRIMARY, ax=axes[0])
+axes[0].axvline(-30, color=C_ALERT, linestyle='--', linewidth=1.5, label='Batas Terlalu Murah (-30%)')
+axes[0].axvline(30, color=C_ALERT, linestyle='--', linewidth=1.5, label='Batas Terlalu Mahal (+30%)')
+axes[0].set_title('Distribusi Deviasi Harga terhadap Median SKU (%)', fontweight='bold')
+axes[0].set_xlabel('Deviasi dari Median (%)')
+axes[0].set_ylabel('Jumlah Transaksi')
+axes[0].legend()
+axes[0].set_xlim(-60, 60)
+
+# Plot 2: Boxplot Perbandingan Harga DUS vs PACK
+produk_dua_sat = ['MIN-001', 'JOF-002', 'OKEY-001', 'LUTOSA-002', 'MIT-010']
+sa
+
+--- [11] markdown ---
+---
+## 4. Dimensi 3: Outlier Detection pada Transaksi (`TRANSAKSI`)
+
+### 🧠 Hasil Diskusi Kelompok Mengenai Definisi *Abnormality* Transaksi
+Pada tingkat baris transaksi/nota kasir, diskusi kelompok kami menetapkan 5 kriteria *abnormality*:
+
+1. **Sub-Kategori 3.1: Transaksi Bernilai Rupiah Ekstrem (`JUMLAH` Ekstrem)**
+   - **Definisi *Abnormality*:** Nilai transaksi baris yang melampaui pagar luar Tukey ($Q_3 + 3 	imes 	ext{IQR}$) pada skala logaritmik ($> 	ext{Rp } 54.907.061$).
+   - **Abnormality-nya Apa:** Transaksi bernilai 50x hingga 95x lipat rata-rata transaksi toko. Baris 4566 & 4937 (Pak Sutarmuji, masing-masing Rp 63.200.000) dan Baris 4565 (Mas Rohmat, Rp 45.750.000).
+
+2. **Sub-Kategori 3.2: Kuantitas Pemesanan Ekstrem (`QTY` Outlier, $z_{	ext{robust}} > 8$)**
+   - **Definisi *Ab
+
+--- [12] code ---
+# Deteksi Nilai Transaksi Rupiah Ekstrem
+log_j = np.log10(df_mentah[df_mentah['JUMLAH'] > 0]['JUMLAH'])
+pagar_atas_trx_j = 10 ** (log_j.quantile(0.75) + 3.0 * (log_j.quantile(0.75) - log_j.quantile(0.25)))
+
+# Deteksi Kuantitas Ekstrem
+def hitung_z_robust(s):
+    med = s.median()
+    mad = (s - med).abs().median()
+    return pd.Series(0, index=s.index) if mad == 0 else 0.6745 * (s - med) / mad
+
+df_mentah['z_qty_sku'] = df_mentah.groupby('KODEBARA')['QTY'].transform(hitung_z_robust)
+
+# Deteksi Duplikasi
+KOLOM_ID = ['TGL', 'KODEBARA', 'QTY', 'SATUAN', 'HARGA', 'JUMLAH', 'NAMA']
+duplikat_masker = df_mentah.duplicated(subset=KOLOM_ID, keep=False)
+
+# Deteksi Temporal Hari Minggu
+df_mentah['HARI_NAMA'] = df_mentah['TGL_DT'].dt.day_name()
+trx_minggu = df_mentah[df_mentah['HARI_NAMA'] == 'Sunday']
+
+
+--- [13] code ---
+fig, axes = plt.subplots(1, 2, figsize=(16, 5.5))
+
+# Plot 1: Tren Omzet Harian & Titik Lonjakan
+omzet_h['TGL_DTT'] = pd.to_datetime(omzet_h['TGL_STR'])
+omzet_h_sorted = omzet_h.sort_values(by='TGL_DTT')
+
+axes[0].plot(omzet_h_sorted['TGL_DTT'], omzet_h_sorted['JUMLAH'] / 1e6, color='#4a90e2', linewidth=1.5, label='Omzet Harian')
+axes[0].axhline(omzet_h['JUMLAH'].median() / 1e6, color='gray', linestyle='--', label=f'Median: Rp {omzet_h["JUMLAH"].median()/1e6:.1f}M')
+
+spike_dtt = pd.to_datetime(hari_lonjakan['TGL_STR'])
+axes[0].scatter(spike_dtt, hari_lonjakan['JUMLAH'] / 1e6, color=C_ALERT, s=85, zorder=5, label='Hari Lonjakan Ekstrem')
+
+for _, r in hari_lonjakan.iterrows():
+    axes[0].annotate(
+        r['TGL_STR'],
+        (pd.to_datetime(r['TGL_STR']), r['JUMLAH'] / 1e6),
+        textcoo
+
+--- [14] markdown ---
+---
+## 5. Rangkuman Matriks Sintesis Seluruh Outlier & Rekomendasi Kebijakan
+
+Tabel di bawah menyatukan seluruh investigasi outlier lintas 3 dimensi (Pelanggan, Harga, dan Transaksi) lengkap dengan **definisi abnormality, abnormality-nya apa, dan kebijakan data science-nya**:
+
+| No | Dimensi | Sub-Kategori Outlier | Definisi *Abnormality* | *Abnormality-nya Apa* (Fakta Riil & Bukti Data) | Kebijakan Data Science (*Action*) |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| **1** | **Pelanggan** | Super-Wholesaler (Paus) | Akumulasi belanja melampaui pagar luar Tukey ($Q_3 + 3	imes	ext{IQR}$) atau $> 5\%$ omzet toko. | `TOKO CITA RASA BARU` (Rp 547,7M) dan `ADEK FROZEN` (Rp 420,7M) menguasai $> 21\%$ omzet toko. Varians omzet meledak jika dicampur ritel biasa. | **Pertahankan & Segmentasikan 
+
